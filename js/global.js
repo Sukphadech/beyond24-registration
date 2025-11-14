@@ -388,6 +388,7 @@ document.getElementById("btn_registerSubmit").addEventListener("click", async fu
   const sheetUrl = "https://corsproxy.io/?" + encodeURIComponent("https://script.google.com/macros/s/AKfycbxZ1n3WuykE5CKr56T9nxKxD56vvWBNN7e6zSKKzFjOD18Z1kFB2tPwxZTEHig_yFQKfw/exec");
 
   try {
+    
     const response = await fetch(sheetUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -401,55 +402,6 @@ document.getElementById("btn_registerSubmit").addEventListener("click", async fu
     console.error("❌ เกิดข้อผิดพลาด:", error);
     alert("เกิดข้อผิดพลาดระหว่างส่งข้อมูล");
   }
-});
-
-
-
-btn_paid.addEventListener("click", async () => {
-  const fileInput = document.getElementById("paymentSlip");
-  const file = fileInput.files[0];
-  
-  if (!selectedUser) {
-    alert("กรุณาเลือกรายชื่อก่อนค่ะ");
-    return;
-  }
-
-  if (!file) {
-    alert("กรุณาแนบสลิปก่อนส่งค่ะ");
-    return;
-  }
-  
-  const reader = new FileReader();
-  reader.onloadend = async function () {
-    const slipBase64 = reader.result;
-    const payload = {
-      nickname: selectedUser.nickname,
-      line: selectedUser.line,
-      slip: slipBase64
-    };
-
-    const scriptUrl = "https://corsproxy.io/?" + encodeURIComponent("https://script.google.com/macros/s/AKfycbykUNP1tOJC4XqdRmZ2HedodFbhfLOEHdgt-3L4Vvoq1DD1f3RMx2msba13lkQzRPGPPw/exec");
-
-    try {
-      const response = await fetch(scriptUrl, {
-        method: "POST",
-        body: JSON.stringify(payload),
-        headers: { "Content-Type": "application/json" }
-      });
-      const result = await response.json();
-      console.log("ผลลัพธ์จาก Server:", result);
-      if (result.success) {
-        alert("✅ อัปโหลดสำเร็จ! ลิงก์ไฟล์: " + result.url);
-      } else {
-        alert("❌ ไม่พบผู้ใช้ในชีต หรืออัปโหลดไม่สำเร็จ");
-      }
-    } catch (err) {
-      console.error("เกิดข้อผิดพลาด:", err);
-      alert("⚠️ เกิดข้อผิดพลาดในการอัปโหลด");
-    }
-  };
-
-  reader.readAsDataURL(file);
 });
 
 
@@ -474,3 +426,76 @@ function checkPaidButtonStatus() {
         console.log("⛔ ปิดปุ่มชำระเงิน (ยังไม่ครบเงื่อนไข)");
       }
     }
+
+
+btn_paid.addEventListener("click", async () => {
+  const fileInput = document.getElementById("paymentSlip");
+  const file = fileInput.files[0];
+
+  if (!selectedUser) {
+    alert("กรุณาเลือกรายชื่อก่อนค่ะ");
+    return;
+  }
+
+  if (!file) {
+    alert("กรุณาแนบสลิปก่อนส่งค่ะ");
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onloadend = async function () {
+    // ✅ เมื่อโหลดภาพเสร็จแล้ว
+    const img = new Image();
+    img.src = reader.result;
+
+    img.onload = async function () {
+      // 🎨 สร้าง canvas เพื่อย่อรูป
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+
+      const maxW = 800; // ความกว้างสูงสุด
+      const scale = maxW / img.width;
+      canvas.width = maxW;
+      canvas.height = img.height * scale;
+
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      // 🧩 แปลง canvas -> base64 (JPG)
+      const slipBase64 = canvas.toDataURL("image/jpeg", 0.8); // บีบอัด 80%
+
+      // 📦 เตรียมข้อมูลส่ง
+      const payload = {
+        nickname: selectedUser.nickname,
+        line: selectedUser.line,
+        slip: slipBase64
+      };
+
+      // 🌐 URL ของ Google Apps Script
+      const scriptUrl = "https://script.google.com/macros/s/AKfycbzTGULQ016WtpCJlI2JT4Xhy-XByiwMsKhGS737kTqgs2mP3F53DmKK3pSAIUijHxybjA/exec";
+
+      try {
+        console.log("📤 กำลังส่งข้อมูล:", payload);
+        const response = await fetch(scriptUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+        console.log("ผลลัพธ์จาก Server:", result);
+
+        if (result.success) {
+          alert("✅ อัปโหลดสำเร็จ!");
+        } else {
+          alert("❌ ไม่พบผู้ใช้ในชีต หรืออัปโหลดไม่สำเร็จ");
+        }
+      } catch (err) {
+        console.error("เกิดข้อผิดพลาด:", err);
+        alert("⚠️ เกิดข้อผิดพลาดในการอัปโหลด");
+      }
+    };
+  };
+
+  // 🔹 เริ่มอ่านไฟล์
+  reader.readAsDataURL(file);
+});
